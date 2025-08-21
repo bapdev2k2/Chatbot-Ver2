@@ -1,0 +1,20 @@
+{
+  "users": [
+    {
+      "id": "77c705b5-99fe-46b6-8500-13f01f23ca45",
+      "email": "giangdoan@gmail.com",
+      "name": "giangdoan",
+      "passwordHash": "$2b$10$tdp/apLG6gGUSrN5JOPch.YHWy04BkSFDVJ3jrFeBUzzzQpsnHZ5m",
+      "createdAt": "2025-08-21T10:46:21.165Z",
+      "updatedAt": "2025-08-21T10:46:21.165Z"
+    },
+    {
+      "id": "ab1681f3-6041-4359-8005-a0f340d99cd2",
+      "email": "linhsah111@gmail.com",
+      "name": "linhsah111",
+      "passwordHash": "$2b$10$oWC4SXraduQ2G78KpvKdPefYz8eLRexHB4Hf9.GgK3HNgQ088qR1O",
+      "createdAt": "2025-08-21T10:42:12.314Z",
+      "updatedAt": "2025-08-21T10:42:12.314Z"
+    }
+  ]
+}

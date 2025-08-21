@@ -1,0 +1,234 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-geist);
+  --font-serif: var(--font-manrope);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  /* Updated to luxury fashion-forward Vietnamese aesthetic color palette */
+  --background: #ffffff;
+  --foreground: #374151;
+  --card: #fefce8;
+  --card-foreground: #374151;
+  --popover: #ffffff;
+  --popover-foreground: #374151;
+  --primary: #d97706;
+  --primary-foreground: #ffffff;
+  --secondary: #6366f1;
+  --secondary-foreground: #ffffff;
+  --muted: #f8fafc;
+  --muted-foreground: #374151;
+  --accent: #6366f1;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb;
+  --input: #f8fafc;
+  --ring: rgba(217, 119, 6, 0.5);
+  --radius: 0.75rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #374151;
+  --sidebar-primary: #d97706;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #6366f1;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: rgba(217, 119, 6, 0.5);
+}
+
+.dark {
+  /* Updated dark mode to maintain luxury aesthetic */
+  --background: #0f172a;
+  --foreground: #fefce8;
+  --card: #1e293b;
+  --card-foreground: #fefce8;
+  --popover: #1e293b;
+  --popover-foreground: #fefce8;
+  --primary: #f59e0b;
+  --primary-foreground: #0f172a;
+  --secondary: #818cf8;
+  --secondary-foreground: #0f172a;
+  --muted: #334155;
+  --muted-foreground: #94a3b8;
+  --accent: #818cf8;
+  --accent-foreground: #0f172a;
+  --destructive: #f87171;
+  --destructive-foreground: #0f172a;
+  --border: #334155;
+  --input: #1e293b;
+  --ring: rgba(245, 158, 11, 0.5);
+  --sidebar: #0f172a;
+  --sidebar-foreground: #fefce8;
+  --sidebar-primary: #f59e0b;
+  --sidebar-primary-foreground: #0f172a;
+  --sidebar-accent: #818cf8;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #334155;
+  --sidebar-ring: rgba(245, 158, 11, 0.5);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+/* Added luxury fashion-inspired animations and effects */
+@keyframes luxury-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 var(--color-primary);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 12px rgba(217, 119, 6, 0.2);
+  }
+}
+
+@keyframes vietnamese-wave {
+  0%,
+  100% {
+    height: 6px;
+    background: var(--color-primary);
+  }
+  50% {
+    height: 20px;
+    background: var(--color-accent);
+  }
+}
+
+@keyframes golden-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.luxury-pulse {
+  animation: luxury-pulse 2s ease-in-out infinite;
+}
+
+.vietnamese-eq {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+}
+
+.vietnamese-eq span {
+  display: block;
+  width: 4px;
+  border-radius: 3px;
+  animation: vietnamese-wave 1.2s ease-in-out infinite;
+}
+
+.vietnamese-eq .b1 {
+  animation-delay: 0s;
+}
+.vietnamese-eq .b2 {
+  animation-delay: 0.15s;
+}
+.vietnamese-eq .b3 {
+  animation-delay: 0.3s;
+}
+.vietnamese-eq .b4 {
+  animation-delay: 0.45s;
+}
+.vietnamese-eq .b5 {
+  animation-delay: 0.6s;
+}
+
+.golden-shimmer {
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent), var(--color-primary));
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: golden-shimmer 3s ease-in-out infinite;
+}
+
+.glass-morphism {
+  backdrop-filter: blur(20px);
+  background: rgba(254, 252, 232, 0.8);
+  border: 1px solid rgba(217, 119, 6, 0.2);
+}
+
+.luxury-shadow {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(217, 119, 6, 0.05);
+}
+
+.vietnamese-gradient {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+}
+
+.floating-element {
+  animation: float 6s ease-in-out infinite;
+}
+
+.typing-dots::after {
+  content: "";
+  animation: typing-dots 1.5s infinite;
+}
+
+@keyframes typing-dots {
+  0% {
+    content: "●";
+  }
+  33% {
+    content: "●●";
+  }
+  66% {
+    content: "●●●";
+  }
+}

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BapDev AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    .mic-pulse { animation: pulse 1.2s ease-out infinite; }
+    @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(239,68,68,.6)} 70%{box-shadow:0 0 0 14px rgba(239,68,68,0)} 100%{box-shadow:0 0 0 0 rgba(239,68,68,0)} }
+    .eq{display:flex;align-items:flex-end;gap:3px;height:16px}.eq span{width:3px;background:#ef4444;display:inline-block;border-radius:2px}
+    .eq .b1{height:8px;animation:eq1 .8s infinite ease-in-out}.eq .b2{height:12px;animation:eq2 .8s infinite ease-in-out;animation-delay:.1s}
+    .eq .b3{height:6px;animation:eq3 .8s infinite ease-in-out;animation-delay:.2s}.eq .b4{height:14px;animation:eq2 .8s infinite ease-in-out;animation-delay:.3s}
+    .eq .b5{height:10px;animation:eq1 .8s infinite ease-in-out;animation-delay:.4s}
+    @keyframes eq1{0%,100%{transform:scaleY(.7)}50%{transform:scaleY(1.3)}}@keyframes eq2{0%,100%{transform:scaleY(.6)}50%{transform:scaleY(1.4)}}
+    @keyframes eq3{0%,100%{transform:scaleY(.8)}50%{transform:scaleY(1.2)}}
+    .typing-indicator:after{content:'...';animation:typing 1.5s infinite}@keyframes typing{0%{content:'.'}33%{content:'..'}66%{content:'...'}}
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div id="root" class="min-h-screen flex flex-col"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // Local presets
+    const LS_KEY = 'training_presets_v1';
+    const loadPresets = () => { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; } };
+    const savePresets = (arr) => { try { localStorage.setItem(LS_KEY, JSON.stringify(arr.slice(0,50))); } catch {} };
+    const fmt = (iso) => new Date(iso).toLocaleString();
+
+    function App() {
+      // Upload grid
+      const addInputRef = useRef(null);
+      const [pendingSlot, setPendingSlot] = useState(null);
+      const [imageUrls, setImageUrls] = useState([]);
+      const [uploading, setUploading] = useState(false);
+
+      // Chat
+      const [messages, setMessages] = useState([]);
+      const [input, setInput] = useState('');
+      const [isLoading, setIsLoading] = useState(false);
+      const [error, setError] = useState(null);
+
+      // Training (server current)
+      const [trainingPrompt, setTrainingPrompt] = useState('');
+      const [trainingEnabled, setTrainingEnabled] = useState(true);
+      const [trainingSavedAt, setTrainingSavedAt] = useState(null);
+      const [saving, setSaving] = useState(false);
+
+      // Presets UI
+      const [showTraining, setShowTraining] = useState(false);
+      const [presetName, setPresetName] = useState('');
+      const [presets, setPresets] = useState([]);
+      const [selectedPresetId, setSelectedPresetId] = useState('');
+
+      // Edit preset state
+      const [editingPresetId, setEditingPresetId] = useState(null);
+      const [editName, setEditName] = useState('');
+      const [editPrompt, setEditPrompt] = useState('');
+      const [editEnabled, setEditEnabled] = useState(true);
+
+      // Speech
+      const [isRecording, setIsRecording] = useState(false);
+      const recognitionRef = useRef(null);
+
+      // Scroll
+      const messagesEndRef = useRef(null);
+      const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      useEffect(() => { scrollToBottom(); }, [messages]);
+
+      // Init
+      useEffect(() => {
+        (async () => {
+          try {
+            const r = await fetch('http://localhost:3000/api/training');
+            const j = await r.json();
+            if (j?.success && j?.data) {
+              setTrainingPrompt(j.data.prompt || '');
+              setTrainingEnabled(Boolean(j.data.enabled));
+              setTrainingSavedAt(j.data.updatedAt || null);
+            }
+          } catch {}
+          setPresets(loadPresets());
+        })();
+      }, []);
+
+      // Speech
+      useEffect(() => {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) return;
+        const rec = new SR();
+        rec.lang = 'vi-VN'; rec.continuous = false; rec.interimResults = true;
+        rec.onstart = () => setIsRecording(true);
+        rec.onend = () => setIsRecording(false);
+        rec.onerror = () => setIsRecording(false);
+        rec.onresult = (e) => {
+          let t = '';
+          for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
+          t = t.trim(); if (!t) return;
+          setInput(prev => prev ? prev + ' ' + t : t);
+        };
+        recognitionRef.current = rec;
+        return () => { try { rec.abort(); } catch {} recognitionRef.current = null; };
+      }, []);
+      const toggleMic = () => {
+        const rec = recognitionRef.current;
+        if (!rec) return alert('Trình duyệt không hỗ trợ ghi âm.');
+        if (isRecording) { try { rec.stop(); } catch {} } else { try { rec.start(); } catch { alert('Không thể bật mic.'); } }
+      };
+
+      // Upload 1 ảnh/lần
+      const openFilePicker = (slotIndex=null) => { setPendingSlot(slotIndex); addInputRef.current?.click(); };
+      const onPickOneFile = async (e) => {
+        const file = e.target.files?.[0]; if (!file) return;
+        if (pendingSlot==null && imageUrls.length>=5) { e.target.value=''; return; }
+        setUploading(true);
+        try {
+          const fd = new FormData(); fd.append('files', file);
+          const resp = await fetch('http://localhost:3000/api/upload', { method:'POST', body:fd });
+          const json = await resp.json();
+          if (!resp.ok || !json?.fileUrls?.[0]) throw new Error(json?.error?.message || 'Upload failed');
+          const url = json.fileUrls[0];
+          setImageUrls(prev => {
+            const next = [...prev];
+            if (pendingSlot==null) next.push(url); else next[pendingSlot]=url;
+            return next.slice(0,5);
+          });
+        } catch (err) {
+          alert('Upload lỗi: ' + err.message);
+        } finally {
+          setUploading(false); setPendingSlot(null);
+          if (addInputRef.current) addInputRef.current.value='';
+        }
+      };
+      const removeImage = (idx) => setImageUrls(prev => prev.filter((_,i)=>i!==idx));
+
+      // ---- Training helpers ----
+      // Chỉ ÁP DỤNG lên server, KHÔNG tạo preset
+      const applyTrainingToServer = async ({ prompt, enabled }) => {
+        setSaving(true);
+        try {
+          const r = await fetch('http://localhost:3000/api/training', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ prompt, enabled })
+          });
+          const j = await r.json();
+          if (!j?.success) throw new Error('Apply failed');
+          const updatedAt = j?.data?.updatedAt || new Date().toISOString();
+          setTrainingSavedAt(updatedAt);
+          setTrainingPrompt(j?.data?.prompt ?? prompt ?? '');
+          setTrainingEnabled(Boolean(j?.data?.enabled ?? enabled));
+        } finally { setSaving(false); }
+      };
+
+      // Lưu & Áp dụng + THÊM preset mới
+      const saveTrainingAndAddPreset = async ({ prompt, enabled }) => {
+        setSaving(true);
+        try {
+          const r = await fetch('http://localhost:3000/api/training', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ prompt, enabled })
+          });
+          const j = await r.json();
+          if (!j?.success) throw new Error('Save failed');
+          const updatedAt = j?.data?.updatedAt || new Date().toISOString();
+          const newPrompt = j?.data?.prompt || prompt || '';
+          const newEnabled = Boolean(j?.data?.enabled ?? enabled);
+          setTrainingSavedAt(updatedAt);
+          setTrainingPrompt(newPrompt);
+          setTrainingEnabled(newEnabled);
+
+          const name = (presetName?.trim()) || (newPrompt.split('\n')[0]?.slice(0,40) || 'Preset không tên');
+          const preset = { id: crypto.randomUUID?.() || String(Date.now()), name, prompt:newPrompt, enabled:newEnabled, updatedAt };
+          const next = [preset, ...presets].slice(0,50);
+          setPresets(next); savePresets(next); setPresetName('');
+          return preset;
+        } finally { setSaving(false); }
+      };
+
+      // Header: dùng preset đã chọn (không tạo mới)
+      const applySelectedPreset = () => {
+        const p = presets.find(x => x.id === selectedPresetId);
+        if (!p) return;
+        applyTrainingToServer({ prompt: p.prompt, enabled: p.enabled });
+      };
+
+      // Preset CRUD
+      const startEditPreset = (p) => { setEditingPresetId(p.id); setEditName(p.name); setEditPrompt(p.prompt); setEditEnabled(p.enabled); };
+      const cancelEditPreset = () => { setEditingPresetId(null); setEditName(''); setEditPrompt(''); setEditEnabled(true); };
+      const saveEditPreset = () => {
+        setPresets(prev => {
+          const next = prev.map(p => p.id===editingPresetId ? { ...p, name: (editName.trim()||p.name), prompt: editPrompt, enabled: editEnabled, updatedAt:new Date().toISOString() } : p);
+          savePresets(next); return next;
+        });
+        if (selectedPresetId===editingPresetId) { setTrainingPrompt(editPrompt); setTrainingEnabled(editEnabled); }
+        cancelEditPreset();
+      };
+      const deletePreset = (id) => {
+        setPresets(prev => { const next = prev.filter(p=>p.id!==id); savePresets(next); return next; });
+        if (selectedPresetId===id) setSelectedPresetId('');
+      };
+
+      // Send chat (clear images ngay)
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!input.trim() && imageUrls.length===0) return;
+        if (isLoading) return;
+
+        const imagesToSend = [...imageUrls];
+        const userMessage = { role:'user', content: input, ...(imagesToSend.length ? { imageUrls: imagesToSend } : {}) };
+        setMessages(prev => [...prev, userMessage]);
+        setInput(''); setError(null); setIsLoading(true);
+        setImageUrls([]); if (addInputRef.current) addInputRef.current.value='';
+
+        try {
+          const candidate = [...messages, userMessage];
+          const safeMessages = candidate.filter(m => {
+            const hasText = typeof m.content==='string' && m.content.trim().length>0;
+            const hasImage = Boolean(m.imageUrl) || (Array.isArray(m.imageUrls) && m.imageUrls.length>0);
+            return hasText || hasImage;
+          });
+
+          const response = await fetch('http://localhost:3000/api/chat', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ messages: safeMessages, stream: true })
+          });
+
+          if (!response.ok) {
+            const text = await response.text().catch(()=> '');
+            let msg = `Server error ${response.status}`;
+            try { const j = JSON.parse(text); if (j?.error?.message) msg += ` – ${j.error.message}`; } catch {}
+            setError(msg); setIsLoading(false); return;
+          }
+
+          const reader = response.body.getReader(); const decoder = new TextDecoder();
+          let assistantMessage = { role:'assistant', content:'' };
+          setMessages(prev => [...prev, assistantMessage]);
+
+          while (true) {
+            const { done, value } = await reader.read(); if (done) break;
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n').filter(line => line.trim()!=='');
+            for (const line of lines) {
+              if (!line.startsWith('data:')) continue;
+              const data = line.slice(5).trim(); if (data==='[DONE]') break;
+              try {
+                const parsed = JSON.parse(data);
+                const token = parsed?.choices?.[0]?.delta?.content;
+                if (token) { assistantMessage.content += token; setMessages(prev => [...prev.slice(0,-1), { ...assistantMessage }]); }
+              } catch {}
+            }
+          }
+        } catch (err) {
+          setError(err.message);
+        } finally { setIsLoading(false); }
+      };
+
+      // UI
+      return (
+        <div className="flex flex-col h-screen w-full mx-auto">
+          <header className="bg-indigo-600 text-white p-4 shadow-md">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold">BapDev AI</h1>
+                <p className="text-sm opacity-80">Gemini + Kie.ai Upload + Training Prompt</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <select className="text-black rounded px-2 py-1" value={selectedPresetId} onChange={(e)=>setSelectedPresetId(e.target.value)}>
+                  <option value="">— Chọn preset —</option>
+                  {presets.map(p => (<option key={p.id} value={p.id}>{p.name} • {fmt(p.updatedAt)}</option>))}
+                </select>
+                <button type="button" onClick={applySelectedPreset} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded" disabled={!selectedPresetId || saving}>Dùng</button>
+                <button type="button" onClick={()=>setShowTraining(true)} className="px-3 py-1.5 bg-white text-indigo-700 font-semibold rounded hover:bg-gray-100">Training</button>
+              </div>
+            </div>
+          </header>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.length===0 ? (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                <div className="text-center">
+                  <p className="text-xl mb-2">Welcome to the AI Chat Assistant</p>
+                  <p>Ném ảnh lên, bấm Send/Enter. Training prompt sẽ tự áp dụng.</p>
+                </div>
+              </div>
+            ) : (
+              messages.map((m,i)=>(
+                <div key={i} className={`p-4 rounded-lg shadow-sm w-fit max-w-[40%] ${m.role==='user' ? 'ml-auto bg-indigo-100 flex flex-col justify-end items-end':'mr-auto bg-white'}`}>
+                  <div className="font-semibold mb-1">{m.role==='user'?'You':'BắpDev'}</div>
+                  <div className="whitespace-pre-wrap break-words break-all">{m.content}</div>
+                  {m.imageUrls && m.imageUrls.map((url,idx)=>(<img key={idx} src={url} alt={`uploaded-${idx}`} className="mt-2 max-w-xs rounded border" />))}
+                  {isLoading && i===messages.length-1 && <span className="typing-indicator inline-block ml-1"></span>}
+                </div>
+              ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-4 border-t bg-white">
+            {error && <div className="mb-2 p-2 bg-red-100 text-red-700 rounded text-sm">Error: {error}</div>}
+
+            <input ref={addInputRef} type="file" accept="image/*" className="hidden" onChange={onPickOneFile} disabled={uploading || isLoading}/>
+
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-5 gap-3 w-fit">
+                {imageUrls.map((url,idx)=>(
+                  <button key={idx} type="button" onClick={()=>openFilePicker(idx)} className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-100 border border-gray-300 hover:ring-2 hover:ring-indigo-500" title="Bấm để thay ảnh">
+                    <img src={url} alt={`thumb-${idx}`} className="w-full h-full object-cover"/>
+                    <span onClick={(e)=>{e.stopPropagation();removeImage(idx);}} className="absolute top-1 right-1 inline-flex items-center justify-center w-6 h-6 rounded-full bg-black/60 text-white text-xs" title="Xoá ảnh">×</span>
+                  </button>
+                ))}
+                {imageUrls.length<5 && (
+                  <button type="button" onClick={()=>openFilePicker(null)} className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-500 hover:border-indigo-500 hover:text-indigo-600" title="Thêm ảnh">+</button>
+                )}
+              </div>
+
+              <div className="text-sm">
+                {uploading && <span className="text-gray-500">Uploading…</span>}
+                {!uploading && imageUrls.length>0 && <span className="text-green-600">✓ {imageUrls.length}/5 ảnh</span>}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input type="text" value={input} onChange={(e)=>setInput(e.target.value)} placeholder="Nhập tin nhắn (không bắt buộc khi đã có ảnh)" className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" disabled={isLoading}/>
+                <button type="button" onClick={toggleMic} title={isRecording?'Đang ghi… bấm để dừng':'Bấm để nói'} className={`px-3 py-2 rounded-lg transition ${isRecording?'bg-red-500 text-white mic-pulse':'bg-gray-200 hover:bg-gray-300'}`} disabled={isLoading}>{isRecording?'● Rec':'🎤'}</button>
+                {isRecording && (<div className="eq" aria-label="recording"><span className="b1"></span><span className="b2"></span><span className="b3"></span><span className="b4"></span><span className="b5"></span></div>)}
+                <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50" disabled={(!input.trim() && imageUrls.length===0) || isLoading}>{isLoading?'Sending...':'Send'}</button>
+              </div>
+            </div>
+          </form>
+
+          {showTraining && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/40" onClick={()=>setShowTraining(false)}></div>
+              <div className="relative bg-white w-full max-w-2xl rounded-xl shadow-xl p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-semibold">Tạo prompt training</h2>
+                  <button onClick={()=>setShowTraining(false)} className="px-2 py-1 rounded hover:bg-gray-100" title="Đóng">✕</button>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={trainingEnabled} onChange={(e)=>setTrainingEnabled(e.target.checked)}/> Áp dụng tự động
+                  </label>
+
+                  <textarea value={trainingPrompt} onChange={(e)=>setTrainingPrompt(e.target.value)} placeholder="Ví dụ: Khi nhận ảnh, hãy phân tích đầy đủ các thuộc tính thời trang..." className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" rows={6}></textarea>
+
+                  <div className="flex items-center gap-2">
+                    <input type="text" value={presetName} onChange={(e)=>setPresetName(e.target.value)} placeholder="Tên preset (tuỳ chọn)" className="flex-1 p-2 border rounded"/>
+                    <button onClick={async()=>{ if(!trainingPrompt.trim()) return; await saveTrainingAndAddPreset({ prompt: trainingPrompt, enabled: trainingEnabled }); setShowTraining(false); }} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50" disabled={saving || !trainingPrompt.trim()}>{saving?'Đang lưu…':'Lưu & Áp dụng'}</button>
+                  </div>
+
+                  <div className="text-xs text-gray-500">{trainingSavedAt ? `Đã lưu lần cuối: ${fmt(trainingSavedAt)}` : 'Chưa lưu'}</div>
+                </div>
+
+                {presets.length>0 && (
+                  <div className="mt-4">
+                    <div className="font-semibold mb-2">Presets gần đây</div>
+                    <div className="max-h-64 overflow-auto border rounded">
+                      {presets.map(p=>(
+                        <div key={p.id} className="px-3 py-2 border-b last:border-b-0">
+                          {editingPresetId===p.id ? (
+                            <div className="space-y-2">
+                              <input className="w-full p-2 border rounded" value={editName} onChange={e=>setEditName(e.target.value)} placeholder="Tên preset"/>
+                              <label className="flex items-center gap-2 text-sm">
+                                <input type="checkbox" checked={editEnabled} onChange={e=>setEditEnabled(e.target.checked)}/> Áp dụng tự động
+                              </label>
+                              <textarea className="w-full p-2 border rounded" rows="4" value={editPrompt} onChange={e=>setEditPrompt(e.target.value)}></textarea>
+                              <div className="flex items-center gap-2">
+                                <button onClick={saveEditPreset} className="px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700">Lưu</button>
+                                <button onClick={cancelEditPreset} className="px-3 py-1.5 bg-gray-100 rounded hover:bg-gray-200">Hủy</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="font-medium truncate">{p.name}</div>
+                                <div className="text-xs text-gray-500">Cập nhật: {fmt(p.updatedAt)} • {p.enabled ? 'Auto ON' : 'Auto OFF'}</div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button className="px-2 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200" onClick={()=>{ setTrainingPrompt(p.prompt); setTrainingEnabled(p.enabled); }}>Nạp</button>
+                                <button className="px-2 py-1 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700" onClick={()=>applyTrainingToServer({ prompt:p.prompt, enabled:p.enabled })}>Dùng</button>
+                                <button className="px-2 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200" onClick={()=>startEditPreset(p)}>Sửa</button>
+                                <button className="px-2 py-1 text-sm bg-rose-600 text-white rounded hover:bg-rose-700" onClick={()=>deletePreset(p.id)}>Xóa</button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
