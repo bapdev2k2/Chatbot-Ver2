@@ -15,6 +15,16 @@
       "passwordHash": "$2b$10$oWC4SXraduQ2G78KpvKdPefYz8eLRexHB4Hf9.GgK3HNgQ088qR1O",
       "createdAt": "2025-08-21T10:42:12.314Z",
       "updatedAt": "2025-08-21T10:42:12.314Z"
-    }
+    },
+   {
+  "id": "bapdev-admin-id-001",
+  "email": "bapdev2k2@gmail.com",
+  "name": "admin",
+  "passwordHash": "$2b$10$CkOXqyNUK8VX5r4er7eaaes8D7yUPU0ay92jvRagkjm1RbITQYCt6",
+  "createdAt": "2025-08-28T00:00:00.000Z",
+  "updatedAt": "2025-08-28T00:00:00.000Z"
+}
+
+
   ]
 }

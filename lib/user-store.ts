@@ -38,9 +38,8 @@ export async function createUser(u: { email: string; name?: string | null; passw
 // ====== Fallback file (chạy trên VPS/Render có volume) ======
 type Store = { users: UserRec[] };
 
-let STORE_PATH =
-  process.env.AUTH_STORE_PATH
-  ?? (process.env.VERCEL === "1" || process.env.AWS_LAMBDA_FUNCTION_NAME ? "/tmp/users.json" : join(process.cwd(), "data", "users.json"));
+let STORE_PATH = join(process.cwd(), "data", "users.json");
+
 
 async function ensureFile(): Promise<void> {
   try {
@@ -86,3 +85,4 @@ async function createUserInFile(u: { email: string; name?: string | null; passwo
   await writeStore(db);
   return rec;
 }
+console.log("STORE_PATH đang dùng:", STORE_PATH);
